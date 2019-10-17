@@ -1,3 +1,3 @@
-print "Howdie solar system!\n";
+print "Howdie multiverse!\n";
 exit 0;
 
