@@ -1,3 +1,3 @@
-print "Howdie multiverse!\n";
+print "Howdie North America!\n";
 exit 0;
 
