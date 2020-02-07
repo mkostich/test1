@@ -1,0 +1,62 @@
+Bootstrap: docker
+From: ubuntu:18.04
+
+%files
+  ./get_meta_yaml.sh /usr/local/bin
+
+%post
+
+  ## setup environment:
+  metafile='/meta.txt'
+  export smrt_vers='8.0.0.80529'
+  apt update -y
+  apt install -y less wget unzip rsync locales
+  locale-gen 'en_US.UTF-8'
+  update-locale LC_ALL='en_US.UTF-8'
+
+  ## install smrttools: req's: wget unzip which rsync
+  mkdir -p /opt/pacbio
+  cd /opt/pacbio
+  wget https://downloads.pacbcloud.com/public/software/installers/smrtlink_${smrt_vers}.zip
+  unzip smrtlink_${smrt_vers}.zip
+  rm smrtlink_${smrt_vers}.zip
+  ./smrtlink_${smrt_vers}.run --rootdir smrttools --smrttools-only
+  rm smrtlink_${smrt_vers}*
+  ln -s /opt/pacbio/smrttools/smrtcmds/bin/* /usr/local/bin
+  echo "'pacbio.smrt_tools.version': '$smrt_vers'" >>$metafile
+
+  cmds='bam2fasta bam2fastq bamsieve bax2bam blasr ccs cleric cromwell dataset dazcon fuse gcpp ipdSummary ipython ipython2 isoseq3 juliet laa laagc lima minimap2 pbalign pbcromwell pbdagcon pbindex pbmm2 pbservice pbsv pbvalidate python python2 python2.7 python3 python3.7 python3.7m ra samtools summarizeModifications womtool'
+
+  for f in $cmds; do
+    o=$($f --version 2>&1)
+    o=$(echo "${o##*$f}" | tr "\\n\\t" '  ' | sed -e 's/^ *//' | sed -e 's/ *$//')
+    echo "'pacbio.smrt_tools.$f.version': '$o'" >>$metafile
+  done
+  echo "'pacbio.smrt_tools.falconc.version': '$(falconc version)'" >>$metafile
+
+  ## clean up:
+  apt purge -y wget unzip rsync
+
+%test                                                      ## run tests w/ 'singularity test mycontainer.sif'
+  echo "ccs version: '$(ccs --version 2>&1)'"
+  echo "pbindex version: '$(pbindex --version)'"
+  echo "samtools version: '$(samtools --version)'"
+  echo "metadata yaml: '$(get_meta_yaml.sh)'"
+
+%environment
+  export LC_ALL=C
+
+%runscript
+  cat /.singularity.d/runscript.help
+
+%labels                                                    ## container meta-data; access w/ 'singularity inspect hello.simg'
+  container_author mitch.kostich@jax.org
+  container_version 20200127a
+
+%help                                                      ## help message; access w/ 'singularity run-help mycontainer.sif'
+  This container contains PacBio SMRT tools.
+  Retrieve metadata (as .yaml string): singularity exec smrt_tools_<version>.sif get_meta_yaml.sh
+  PacBio SMRT tools usage: singularity exec smrt_tools_<version>.sif <tool_name> <arguments>
+    where <version> is container version, <tool_name> is a SMRT tool, and <arguments> is list of arguments for the SMRT tool.
+
+
